@@ -1,0 +1,11 @@
+require 'salesforce/sql/version'
+require 'salesforce/sql/app'
+require 'salesforce_bulk'
+require 'restforce'
+require 'terminfo'
+require 'pry'
+
+module Salesforce
+  module Sql
+  end
+end
