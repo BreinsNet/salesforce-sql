@@ -155,6 +155,10 @@ module Salesforce
 
       end
 
+      def insert object, records
+        bulk_insert object, records
+      end
+
       private
 
       def bulk_insert object, records
