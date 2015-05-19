@@ -123,7 +123,7 @@ module Salesforce
         dependencies.each do |dep|
 
           # Export the dependency object ids from the source sandbox
-          dependency_ids = bulk_import_records.map{|row| row[dep[:object_fk_field]]}.sort.uniq
+          dependency_ids = bulk_import_records.map{|row| row[dep[:object_fk_field]]}.compact.sort.uniq
 
           # Use those Ids to get the object records from source including the dependency_object_pk
           source_object = source.query "Select Id,#{dep[:dependency_object_pk]} FROM #{dep[:dependency_object]}", dependency_ids
