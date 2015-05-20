@@ -20,3 +20,8 @@ tmp
 *.o
 *.a
 mkmf.log
+*.swp
+test_data
+credentials.yaml
+envvars
+cucumber-config.yaml

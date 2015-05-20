@@ -106,6 +106,7 @@ module Salesforce
 
       def copy_object source:, object:, object_ids: [], ignore_fields: [], dependencies: []
 
+
         # Remove well known problematic fields and merge them with user requirements:
         ignore_fields = (ignore_fields + @default_ignore_fields).uniq
         
@@ -135,10 +136,12 @@ module Salesforce
           # Now we have source_object and target_object ids and values, we can do the mapping on bulk_import_records
           source_object.each do |row|
             source_id = row['Id']
-            target_id = target_object.select{|r| r[dep[:dependency_object_pk]] == row[dep[:dependency_object_pk]]}.first['Id']
-            bulk_import_records.each {|r| r[dep[:object_fk_field]] = target_id if r[dep[:object_fk_field]] == source_id}
+            record = target_object.select{|r| r[dep[:dependency_object_pk]] == row[dep[:dependency_object_pk]]}
+            if ! record.empty? 
+              target_id = record.first['Id']
+              bulk_import_records.each {|r| r[dep[:object_fk_field]] = target_id if r[dep[:object_fk_field]] == source_id}
+            end
           end
-
         end
 
         # Remove ignored fields
