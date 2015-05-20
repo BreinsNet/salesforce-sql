@@ -134,14 +134,44 @@ module Salesforce
           target_object = self.query_select_in "Select Id,#{dep[:dependency_object_pk]} FROM #{dep[:dependency_object]} WHERE #{dep[:dependency_object_pk]}", dependency_object_pk_values
 
           # Now we have source_object and target_object ids and values, we can do the mapping on bulk_import_records
-          source_object.each do |row|
-            source_id = row['Id']
-            record = target_object.select{|r| r[dep[:dependency_object_pk]] == row[dep[:dependency_object_pk]]}
-            if ! record.empty? 
-              target_id = record.first['Id']
-              bulk_import_records.each {|r| r[dep[:object_fk_field]] = target_id if r[dep[:object_fk_field]] == source_id}
-            end
+          bulk_import_records.map! do |record|
+
+            # If the :object_fk_field is nil, then there is no reference to map and we import the record as itis
+            next record if record[dep[:object_fk_field]].nil?
+
+            # Grab the source dependency item for this record using the :object_fk_field id, if the source item doesn't exist, don't insert the record
+            source_item = source_object.select {|row| row['Id'] == record[dep[:object_fk_field]] }
+            next if source_item.empty?
+
+            # Grab the target dependency item for this record using the :dependency_object_pk, if the target item doesnt exist, don't insert the record
+            target_item = target_object.select {|row| row[dep[:dependency_object_pk]] == source_item.first[dep[:dependency_object_pk]]}
+            next if target_item.empty?
+
+            # The actual mapping
+            record[dep[:object_fk_field]] = target_item.first['Id']
+            record
           end
+
+          bulk_import_records.compact!
+        end
+
+        # If the object is an attachment, then we have to download them all in a temporary location first
+        if object == "Attachment"
+
+          attachment_ignore_fields = ignore_fields.clone
+          attachment_ignore_fields.delete 'isPrivate'
+          attachment_ignore_fields.delete 'ParentId'
+          attachment_ignore_fields << 'BodyLength'
+
+          print_debug "Importing #{bulk_import_records.size} attachments"
+
+          bulk_import_records.each do |att|
+            att['Body'] = Base64::encode64(att.Body)
+            attachment_ignore_fields.each {|f| att.delete f}
+          end
+
+          return true
+
         end
 
         # Remove ignored fields
