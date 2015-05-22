@@ -85,12 +85,17 @@ module Salesforce
 
       def delete object
 
+        count_before = self.query("Select count(Id) from #{object}").first['expr0']
+
         query = "Select Id FROM #{object}" 
         bulk_delete_records = normalize_query @restforce_client.query(query)
 
         print_debug "#{bulk_delete_records.size} #{object} records added to delete on #{self.username}"
 
         bulk_delete object, bulk_delete_records if !bulk_delete_records.empty?
+        count_after = self.query("Select count(Id) from #{object}").first['expr0']
+
+        count_before - count_after
 
       end
 
@@ -106,6 +111,7 @@ module Salesforce
 
       def copy_object source:, object:, object_ids: [], ignore_fields: [], dependencies: []
 
+        count_before = self.query("Select count(Id) from #{object}").first['expr0']
 
         # Remove well known problematic fields and merge them with user requirements:
         ignore_fields = (ignore_fields + @default_ignore_fields).uniq
@@ -155,7 +161,7 @@ module Salesforce
           bulk_import_records.compact!
         end
 
-        # If the object is an attachment, then we have to download them all in a temporary location first
+        # If the object is an attachment, then we can't use bulk api:w
         if object == "Attachment"
 
           attachment_ignore_fields = ignore_fields.clone
@@ -168,9 +174,11 @@ module Salesforce
           bulk_import_records.each do |att|
             att['Body'] = Base64::encode64(att.Body)
             attachment_ignore_fields.each {|f| att.delete f}
+            @restforce_client.create('Attachment',att)
           end
+          count_after = self.query("Select count(Id) from #{object}").first['expr0']
 
-          return true
+          return count_after - count_before
 
         end
 
@@ -185,6 +193,9 @@ module Salesforce
         if !bulk_import_records.empty?
           bulk_insert object, bulk_import_records
         end
+        count_after = self.query("Select count(Id) from #{object}").first['expr0']
+
+        count_after - count_before
 
       end
 
