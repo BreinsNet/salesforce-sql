@@ -25,6 +25,7 @@ module Salesforce
           'ParentId',
           'OwnerId',
           'CreatedById',
+          'SetupOwnerId',
           'CreatedDate',
           'LastModifiedDate',
           'LastModifiedById', 
@@ -200,7 +201,10 @@ module Salesforce
       end
 
       def insert object, records
+        count_before = self.query("Select count(Id) from #{object}").first['expr0']
         bulk_insert object, records
+        count_after = self.query("Select count(Id) from #{object}").first['expr0']
+        count_after - count_before
       end
 
       private
@@ -242,19 +246,21 @@ module Salesforce
         puts "DEBUG: #{message[0..TermInfo.screen_size.last]}" if @debug
       end
 
+
       def restforce_rest_login credentials
+        grace = 0
         begin
           client = Restforce.new :host          => credentials[:host],
-                                 :username      => credentials[:username],
-                                 :password      => credentials[:password],
-                                 :client_id     => credentials[:client_id],
-                                 :client_secret => credentials[:client_secret]
-          client.authenticate!
-          client
+            :username      => credentials[:username],
+            :password      => credentials[:password],
+            :client_id     => credentials[:client_id],
+            :client_secret => credentials[:client_secret]
+          client.authenticate! && client
         rescue => e
-          puts "Error trying to login rest API using: #{credentials[:username]} "
-          puts e
-          exit 1
+          grace += 10
+          puts "INFO: Unable to login REST API, sleeping #{grace}, #{e}" 
+          sleep grace
+          retry
         end
       end
 
@@ -263,9 +269,7 @@ module Salesforce
           sandbox = host.match(/login/) ? nil : true
           SalesforceBulk::Api.new(user,pass,sandbox)
         rescue => e
-          puts "Error trying to login bulk API using: #{user} "
-          puts e
-          exit 1
+          puts "ERROR: Error trying to login bulk API using: #{user}, #{e}"
         end
       end
 
