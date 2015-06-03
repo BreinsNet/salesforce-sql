@@ -21,7 +21,6 @@ module Salesforce
           'Id',
           'IsDeleted',
           'MasterRecordId',
-          'RecordTypeId',
           'ParentId',
           'OwnerId',
           'CreatedById',
@@ -118,8 +117,8 @@ module Salesforce
         ignore_fields = (ignore_fields + @default_ignore_fields).uniq
         
         # Get all the fields from source and destination removing __pc and calculated ones
-        source_object_fields = get_fields object
-        target_object_fields = source.get_fields object
+        source_object_fields = source.get_fields object
+        target_object_fields = self.get_fields object
 
         # Get common fields
         object_fields = source_object_fields & target_object_fields
