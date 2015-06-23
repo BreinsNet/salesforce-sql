@@ -83,11 +83,11 @@ module Salesforce
 
       end
 
-      def delete object
+      def delete object, query = nil
 
         count_before = self.query("Select count(Id) from #{object}").first['expr0']
 
-        query = "Select Id FROM #{object}" 
+        query ||= "Select Id FROM #{object}" 
         bulk_delete_records = normalize_query @restforce_client.query(query)
 
         print_debug "#{bulk_delete_records.size} #{object} records added to delete on #{self.username}"
