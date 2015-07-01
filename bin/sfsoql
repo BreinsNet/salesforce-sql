@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+require 'salesforce/sql'
+
+# Disable stdout buffer
+STDOUT.sync = true
+
+begin
+  Salesforce::Sql::CLI.new.run
+rescue => e
+  puts "ERROR: #{e}"
+  exit 1
+end
