@@ -6,12 +6,6 @@ module Salesforce
       attr_accessor :username
       attr_accessor :step
 
-      def sfbc
-
-        @salesforce_bulk_client
-
-      end
-
       def initialize credentials
 
         # Login credentials
@@ -36,7 +30,6 @@ module Salesforce
           'LastModifiedById', 
           'SystemModstamp',
           'LastActivityDate',
-          'IsPartner',
         ]
 
       end
@@ -213,16 +206,19 @@ module Salesforce
         count_after - count_before
       end
 
+      private
 
       def bulk_insert object, records
-        records.each do |record|
-          @restforce_client.create(object,record)
+        (0..(records.size-1)).step(@bulk_api_step).each do |n|
+          job = @salesforce_bulk_client.create object, records[n..n+@bulk_api_step-1]
+          salesforce_bulk_job_status job
         end
       end
 
       def bulk_delete object, records
-        records.each do |record|
-          @restforce_client.destroy(object,record['Id'])
+        (0..(records.size-1)).step(@bulk_api_step).each do |n|
+          job = @salesforce_bulk_client.delete object, records[n..n+@bulk_api_step-1]
+          salesforce_bulk_job_status job
         end
       end
 
@@ -253,7 +249,7 @@ module Salesforce
       def restforce_rest_login credentials
         grace = 0
         begin
-          client = Restforce.new :host => credentials[:host],
+          client = Restforce.new :host          => credentials[:host],
             :username      => credentials[:username],
             :password      => credentials[:password],
             :client_id     => credentials[:client_id],
@@ -268,18 +264,12 @@ module Salesforce
       end
 
       def salesforce_bulk_login user, pass, host
-        connection = nil
         begin
-          if host.match(/login/)
-            connection = SalesforceBulk::Api.new(user,pass,false)
-          else
-            connection = SalesforceBulk::Api.new(user,pass,true)
-          end
+          sandbox = host.match(/login/) ? nil : true
+          SalesforceBulk::Api.new(user,pass,sandbox)
         rescue => e
           puts "ERROR: Error trying to login bulk API using: #{user}, #{e}"
         end
-        connection.query("Account", "select id, name, createddate from Account limit 3")
-        connection
       end
 
     end
