@@ -20,6 +20,7 @@ module Salesforce
         @default_ignore_fields = [
           'Id',
           'IsDeleted',
+          'IsPartner',
           'MasterRecordId',
           'ParentId',
           'OwnerId',
