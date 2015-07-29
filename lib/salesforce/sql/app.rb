@@ -5,6 +5,9 @@ module Salesforce
       attr_accessor :debug
       attr_accessor :username
       attr_accessor :step
+      attr_accessor :salesforce_bulk_client
+      attr_accessor :restforce_client
+      attr_accessor :default_ignore_fields
 
       def initialize credentials
 
@@ -20,7 +23,6 @@ module Salesforce
         @default_ignore_fields = [
           'Id',
           'IsDeleted',
-          'IsPartner',
           'MasterRecordId',
           'ParentId',
           'OwnerId',
@@ -100,6 +102,49 @@ module Salesforce
 
       end
 
+      # Description: It will resolve the id mapping for a set of records
+      # parameters:
+      #   source: The Salesforce::SQL of the source organization
+      #   dependency_object: The DEPENDENCY object name
+      #   dependency_object_pk: the DEPENENCY field to be used as primary key 
+      #   object_fk_field: The foreign key field name in the OBJECT
+
+      def map_ids source: , records: ,  object_fk_field: , dependency_object_pk: , dependency_object: nil
+
+        # Get dependency object ids from the object
+        dependency_ids = records.map{|row| row[object_fk_field]}.compact.sort.uniq
+
+        # Use those Ids to get the object records from source including the dependency_object_pk
+        source_object = source.query "Select Id,#{dependency_object_pk} FROM #{dependency_object}", dependency_ids
+
+        # Get the dependency_object_pk values and export the IDs from the target object
+        dependency_object_pk_values = source_object.map {|row| row[dependency_object_pk].gsub("'", %q(\\\')) if not row[dep[:dependency_object_pk]].nil? }.compact
+        target_object = self.query_select_in "Select Id,#{dependency_object_pk} FROM #{dependency_object} WHERE #{dependency_object_pk}", dependency_object_pk_values
+
+        # Now we have source_object and target_object ids and values, we can do the mapping on records
+        records.map! do |record|
+
+          # If the :object_fk_field is nil, then there is no reference to map and we import the record as itis
+          next record if record[object_fk_field].nil?
+
+          # Grab the source dependency item for this record using the :object_fk_field id, if the source item doesn't exist, don't insert the record
+          source_item = source_object.select {|row| row['Id'] == record[object_fk_field] }
+          next if source_item.empty?
+
+          # Grab the target dependency item for this record using the :dependency_object_pk, if the target item doesnt exist, don't insert the record
+          target_item = target_object.select {|row| row[dependency_object_pk] == source_item.first[dependency_object_pk]}
+          next if target_item.empty?
+
+          # The actual mapping
+          record[object_fk_field] = target_item.first['Id']
+          record
+
+        end
+
+        records
+
+      end
+
       # Description: Copy an object from one source to target
       # Parameters:
       #   object: The object to copy
@@ -137,7 +182,7 @@ module Salesforce
           source_object = source.query "Select Id,#{dep[:dependency_object_pk]} FROM #{dep[:dependency_object]}", dependency_ids
 
           # Get the dependency_object_pk values and export the IDs from the target object
-          dependency_object_pk_values = source_object.map {|row| row[dep[:dependency_object_pk]].gsub("'", %q(\\\'))}
+          dependency_object_pk_values = source_object.map {|row| row[dep[:dependency_object_pk]].gsub("'", %q(\\\')) if not row[dep[:dependency_object_pk]].nil? }.compact
           target_object = self.query_select_in "Select Id,#{dep[:dependency_object_pk]} FROM #{dep[:dependency_object]} WHERE #{dep[:dependency_object_pk]}", dependency_object_pk_values
 
           # Now we have source_object and target_object ids and values, we can do the mapping on bulk_import_records
@@ -206,8 +251,6 @@ module Salesforce
         count_after = self.query("Select count(Id) from #{object}").first['expr0']
         count_after - count_before
       end
-
-      private
 
       def bulk_insert object, records
         (0..(records.size-1)).step(@bulk_api_step).each do |n|
