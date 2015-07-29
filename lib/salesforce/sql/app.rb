@@ -118,7 +118,7 @@ module Salesforce
         source_object = source.query "Select Id,#{dependency_object_pk} FROM #{dependency_object}", dependency_ids
 
         # Get the dependency_object_pk values and export the IDs from the target object
-        dependency_object_pk_values = source_object.map {|row| row[dependency_object_pk].gsub("'", %q(\\\')) if not row[dep[:dependency_object_pk]].nil? }.compact
+        dependency_object_pk_values = source_object.map {|row| row[dependency_object_pk].gsub("'", %q(\\\')) if not row[dependency_object_pk].nil? }.compact
         target_object = self.query_select_in "Select Id,#{dependency_object_pk} FROM #{dependency_object} WHERE #{dependency_object_pk}", dependency_object_pk_values
 
         # Now we have source_object and target_object ids and values, we can do the mapping on records
