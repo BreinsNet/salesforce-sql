@@ -141,7 +141,7 @@ module Salesforce
 
         end
 
-        records
+        records.compact
 
       end
 
